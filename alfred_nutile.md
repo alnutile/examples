@@ -1,5 +1,9 @@
 # Code Sharing
 
+Two apps below. Adding a third shortly. 
+
+The first one has been in use for months now and importing 100,000 of records. The later two will be projects that are being built right now.
+
 With all of these comes the understanding of CI/CD at the core. With CI there is testing, code quality checking
 auto deployment to staging and zero-downtime to production. You can get more info [here](https://alfrednutile.info/posts/ci_cd_part_one/) on how I start this off for projects. This article uses GithubActions since it really streamlines the work.
 
@@ -802,4 +806,29 @@ As records come back from the `Api` I put those batches of 100 onto a queue to g
 I have a bit more logging in here to help to see a queue process.
 
 When this is done it will ideally trigger a Pusher broadcast to the UI to let the user know the import is done and they see the data in the UI.
+
+
+
+## Private Projects
+
+Here is one private project [https://github.com/alnutile/totalrecalls](https://github.com/alnutile/totalrecalls)
+
+This is a personal product. The highlight here is 
+
+  * It integrates with Firebase 
+  * Has a great ci/cd flow with tests even though private
+
+The use of DTO is going well `https://github.com/alnutile/totalrecalls/blob/main/app/Dto/RecallDto.php`
+this has been great to guarantee structure of data in and out. You can see it here too 
+`https://github.com/alnutile/totalrecalls/blob/main/app/Topics/TopicDto.php`
+
+There is no "real" ui to this it is using [https://nova.laravel.com](https://nova.laravel.com) for the backend and some marketing [https://totalrecalls.io](https://totalrecalls.io)
+
+This is the backend to an iOS app. Really Firebase is the backend this will get recalls from different places and push them into Firestore.
+
+This has been a nice way to abstract out firestore for me `https://github.com/alnutile/totalrecalls/blob/main/app/Services/FirestoreService.php` and then `https://github.com/alnutile/totalrecalls/blob/main/tests/Feature/TopicsRepositoryTest.php#L17` is one example of mocking firestore. You can see my pound out a test below as I just need to come back to it later today/this week.
+
+You can see iOS showing the Topics below
+![](images/recalls_topics.png)
+
 
