@@ -22,7 +22,7 @@ I made numerous complex widgets to make a UI that was dynamic and increased usbi
 
 Here is the ui will share the code right after this
 
-![](find_person.screenflow.gif)
+![](images/find_person.screenflow.gif)
 
 What you are seing is the user able to quickly find what the API calls "terms" to search their api for a person.
 Then when the user presses search and API search happens in the background deliving results to the lower area there without a refresh of the screen. 
