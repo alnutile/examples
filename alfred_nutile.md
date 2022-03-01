@@ -7,6 +7,20 @@ The first one has been in use for months now and importing 100,000 of records. T
 With all of these comes the understanding of CI/CD at the core. With CI there is testing, code quality checking
 auto deployment to staging and zero-downtime to production. You can get more info [here](https://alfrednutile.info/posts/ci_cd_part_one/) on how I start this off for projects. This article uses GithubActions since it really streamlines the work.
 
+## TOC
+  * ElasticSearch integration Examples with Laravel, Livewire
+  * Audience Builder - Bulk Edit UI (Coming next)
+  * Audience Builder using Livewire for a dynamic tool/dashboard
+  * Private Projects - examples of code and access to thoes repos since they are mine
+
+## ElasticSearch integration Examples with Laravel, Livewire
+
+This shows dynamic charts using [https://apexcharts.com](https://apexcharts.com) and Elastic Search.
+
+![](images/charts.png)
+
+Here is some code examples of how I pulled that off.
+
 
 When the Livewire component is mounted I call to the Facade / Client:
 
@@ -369,7 +383,7 @@ This allows for separations in the following ways
 
 
 
-## Audience Builder
+## Audience Builder using Livewire 
 This is a project to build a really impressive system around audience building.
 They had a Poc that hit the PDL Api (https://www.peopledatalabs.com) but then I really took it to the next level.
 
@@ -379,13 +393,6 @@ Working from the UI I will show how this comes togther:
 
 ![](/images/atlas_full.png)
 
-### Elastic Search Reporting Interface
-
-This shows dynamic charts using [https://apexcharts.com](https://apexcharts.com) and Elastic Search.
-
-![](images/charts.png)
-
-Here is some code examples of how I pulled that off.
 
 
 
@@ -1181,7 +1188,7 @@ When this is done it will ideally trigger a Pusher broadcast to the UI to let th
 
 
 
-## Private Projects
+## Private Projects 
 
 Here is one private project [https://github.com/alnutile/totalrecalls](https://github.com/alnutile/totalrecalls)
 
