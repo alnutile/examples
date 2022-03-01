@@ -7,6 +7,368 @@ The first one has been in use for months now and importing 100,000 of records. T
 With all of these comes the understanding of CI/CD at the core. With CI there is testing, code quality checking
 auto deployment to staging and zero-downtime to production. You can get more info [here](https://alfrednutile.info/posts/ci_cd_part_one/) on how I start this off for projects. This article uses GithubActions since it really streamlines the work.
 
+
+When the Livewire component is mounted I call to the Facade / Client:
+
+```php
+    public function mount(AudienceBuilder $audience_builder)
+    {
+        $this->models_audience_builder = $audience_builder;
+
+        $this->indexName = sprintf(
+            "ab-%s",
+            $this->models_audience_builder->id
+        );
+
+        $this->indexExists = ElasticSearchClient::indexExist(
+            $this->indexName
+        );
+    }
+
+```
+
+This allows me to mock whent testing the UI with PHPUnit tests (which is great about LiveWire)
+
+Then taht client talks to ElasticSearch:
+
+To start with it used Dependency Injection:
+
+```php
+use Elasticsearch\Client;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+
+class ElasticSearchClient
+{
+    protected Client $client;
+
+    public function __construct(Client $client, $config = [])
+    {
+        if (!empty($config)) {
+            $client = ClientBuilder::fromConfig($config);
+        }
+
+        $this->client = $client;
+    }
+
+```
+
+And that can be `AppServiceProvider` class:
+
+```php
+     * @return void
+     */
+    public function register()
+    {
+        $this->app->bind(ElasticSearchClient::class, function () {
+            $config = config("elastic");
+            $config['hosts'] = Arr::wrap(
+                Arr::get($config, 'hosts', [])
+            );
+
+            $client = ClientBuilder::create()->build();
+
+            return new ElasticSearchClient($client, $config);
+        });
+
+        $this->app->bind(PDLAPIService::class, function () {
+            return new PDLAPIService();
+        });
+```
+
+Once there I can talk to ES (full code shared below), with a Repository class managing the business logic:
+
+```php
+<?php
+
+namespace App\Services;
+
+use App\Models\AudienceBuilder;
+use App\Repositories\AudienceBuilder\ElasticSearchRepository;
+use Elasticsearch\ClientBuilder;
+use Elasticsearch\Client;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+
+class ElasticSearchClient
+{
+    protected Client $client;
+
+    public function __construct(Client $client, $config = [])
+    {
+        if (!empty($config)) {
+            $client = ClientBuilder::fromConfig($config);
+        }
+
+        $this->client = $client;
+    }
+
+    public function getAggs($index_id)
+    {
+        $query = $this->aggs();
+        $query = json_decode($query, true);
+        $params = [
+            'index' => $index_id,
+            'body'  => $query
+        ];
+
+        $response = $this->client
+            ->search($params);
+
+        $results = Arr::get($response, 'aggregations', []);
+        $results['hits'] = Arr::get($response, 'hits.total.value');
+
+        return $results;
+    }
+
+    public function indexExist($index_id)
+    {
+        $params = [
+            'index' => $index_id
+        ];
+
+        $response = $this->client
+            ->indices()
+            ->exists($params);
+
+        return $response;
+    }
+
+
+    public function deleteIndex($index_id)
+    {
+        $params = [
+            'index' => $index_id
+        ];
+
+        $response = $this->client
+            ->indices()
+            ->delete($params);
+
+
+        $this->handleResponse(
+            $response,
+            'acknowledged',
+            true,
+        );
+
+        return "ok";
+    }
+
+    protected function handleResponse(
+        $response,
+        $key,
+        $result,
+        $return = false
+    ) {
+        if (Arr::get($response, $key) != $result) {
+            Log::info("ES Error", $response);
+            throw new \Exception("Issue connecting to ES");
+        }
+
+        if ($return) {
+            return Arr::get($response, $return);
+        }
+
+        return false;
+    }
+
+    public function createIndexWithMappings($index_id)
+    {
+        $mappings = $this->mappings();
+        $mappings = json_decode($mappings, true);
+        $params = [
+            'index' => $index_id,
+            'body'  => [
+                'settings' => [
+                    'number_of_shards' => 1,
+                    'number_of_replicas' => 1
+                ],
+                'mappings' => Arr::get($mappings, 'mappings', [])
+            ]
+        ];
+
+        $response = $this->client
+            ->indices()
+            ->create($params);
+
+        $results = $this->handleResponse(
+            $response,
+            'acknowledged',
+            true,
+            'index'
+        );
+
+
+        return $results;
+    }
+
+    public function refreshIndex(AudienceBuilder $audienceBuilder)
+    {
+        $index_name = sprintf("ab-%s", $audienceBuilder->id);
+        $this->deleteIndex($index_name);
+        return $this->bulkImport($audienceBuilder);
+    }
+
+    public function bulkImport(AudienceBuilder $audienceBuilder)
+    {
+
+        $results = (new ElasticSearchRepository($audienceBuilder))
+            ->getBulkInsertToText();
+
+        $index_name = sprintf("ab-%s", $audienceBuilder->id);
+
+        $this->createIndexWithMappings($index_name);
+
+        $params = [
+            'index' => $index_name,
+            'body'  => $results
+        ];
+
+        $response = $this->client->bulk($params);
+
+        $results = $this->handleResponse(
+            $response,
+            'errors',
+            false
+        );
+
+        return "ok";
+    }
+
+
+    public function createIndex($index_id)
+    {
+
+        $params = [
+            'index' => $index_id,
+            'body'  => [
+                'settings' => [
+                    'number_of_shards' => 1,
+                    'number_of_replicas' => 1
+                ]
+            ]
+        ];
+
+        $response = $this->client
+            ->indices()
+            ->create($params);
+
+        $results = $this->handleResponse(
+            $response,
+            'acknowledged',
+            true,
+            'index'
+        );
+
+
+        return $results;
+    }
+
+    protected function getParams($index_id)
+    {
+        $config = config("elastic");
+    }
+
+    protected function mappings()
+    {
+        return <<<EOD
+{
+  "mappings": {
+    "properties": {
+      "experience": {
+        "type": "nested" 
+      },
+      "education": {
+        "type": "nested" 
+      },
+      "score_total": {
+          "type": "integer"
+      },
+      "donation_total": {
+          "type": "scaled_float",
+          "scaling_factor": 100
+      },
+      "modifier": {
+          "type": "integer"
+      },
+      "location_geo": {
+          "type": "geo_point"
+      },
+      "skills": {
+          "type": "keyword"
+      },
+      "category": {
+          "type": "keyword"
+      },
+      "subcategory": {
+          "type": "keyword"
+      },
+      "gender": {
+          "type": "keyword"
+      },
+      "location_region": {
+          "type": "keyword"
+      },
+      "job_title": {
+          "type": "keyword"
+      },
+      "industry": {
+          "type": "keyword"
+      },
+      "regions": {
+          "type": "keyword"
+      }
+    }
+  }
+}
+EOD;
+    }
+
+    protected function aggs()
+    {
+        return <<<EOD
+{
+  "size": 0,
+  "aggs": {
+    "avg_score": { "avg": { "field": "score_total" } },
+    "plot_score": { "boxplot": { "field": "score_total" } },
+    "plot_birth_year": { "boxplot": { "field": "birth_year" } },
+    "donation_count": { "avg": { "field": "donation_count" } },
+    "avg_donation": { "avg": { "field": "donation_total" } },
+    "max_donation": { "max": { "field": "donation_total" } },
+    "stats_donations": { "extended_stats": { "field": "donation_total" } },
+    "stats_scores": { "extended_stats": { "field": "score_total" } },
+    "max_birth_year": { "max": { "field": "birth_year" } },
+    "gender": { "terms": { "field": "gender" }},
+    "percentile_scores": { "percentiles": { "field": "score_total" }},
+    "percentile_birth_year": { "percentiles": { "field": "birth_year" }},
+    "terms_skills": { "terms": { "field": "skills" }},
+    "terms_category": { "terms": { "field": "category" }},
+    "terms_subcategory": { "terms": { "field": "subcategory" }},
+    "terms_regions": { "terms": { "field": "regions" }},
+    "terms_industry": { "terms": { "field": "industry" }},
+    "terms_gender": { "terms": { "field": "gender" }},
+    "terms_job_title": { "terms": { "field": "job_title" }},
+    "terms_location_region": { "terms": { "field": "location_region" }},
+    "geo_bounts_location_geo": {"geo_bounds":{ "field": "location_geo", "wrap_longitude": true } }
+  }
+}
+EOD;
+    }
+}
+```
+This allows for separations in the following ways
+
+  * Slim Controller to render the UI
+  * Client Class using proper DI to talk to an API and in this case wrap the SDK provided.
+  * Repository class to manage and business data.
+
+
+
+
 ## Audience Builder
 This is a project to build a really impressive system around audience building.
 They had a Poc that hit the PDL Api (https://www.peopledatalabs.com) but then I really took it to the next level.
@@ -15,7 +377,17 @@ Let me give you some examples.
 
 Working from the UI I will show how this comes togther:
 
-![](images/atlas_full.png)
+![](/images/atlas_full.png)
+
+### Elastic Search Reporting Interface
+
+This shows dynamic charts using [https://apexcharts.com](https://apexcharts.com) and Elastic Search.
+
+![](images/charts.png)
+
+Here is some code examples of how I pulled that off.
+
+
 
 ### Livewire 
 This is my first use of a well known library that makes it so you can make dynamic websites with little to no
