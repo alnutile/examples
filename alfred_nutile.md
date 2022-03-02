@@ -12,6 +12,7 @@ auto deployment to staging and zero-downtime to production. You can get more inf
   * Audience Builder - Bulk Edit UI (Coming next)
   * Audience Builder using Livewire for a dynamic tool/dashboard
   * Private Projects - examples of code and access to thoes repos since they are mine
+  * Blog Posts
 
 ## ElasticSearch integration Examples with Laravel, Livewire
 
@@ -1211,3 +1212,13 @@ You can see iOS showing the Topics below
 ![](images/recalls_topics.png)
 
 
+## Blog Posts
+
+Here are some of my more popular blog posts
+
+  
+  * [Ongoing: Links and Notes About DevOps Transformation Using the Accelerate Data and Strategies](https://alnutile.medium.com/ongoing-links-and-notes-about-devops-transformation-using-the-accelerate-data-and-strategies-ce039b8ac6d3)
+  * [Suggestions Around Building a Good Development Team in Parallel to Building a Good Product](https://alnutile.medium.com/suggestions-around-building-a-good-development-team-in-parallel-to-building-a-good-product-6dcc50b0a551)
+  * [We Code in the Context of our Quoting](https://alnutile.medium.com/we-code-in-the-context-of-our-quoting-dab391fe0881)
+  * [Behat Laravel Domain Testing Inside Out](https://alfrednutile.info/posts/187/)
+  * [CI — GitHub Actions and Laravel (Part 1 of 3)](https://medium.com/@alnutile/ci-github-actions-and-laravel-part-1-of-3-547d5515b116)
