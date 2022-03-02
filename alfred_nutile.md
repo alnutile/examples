@@ -9,10 +9,10 @@ auto deployment to staging and zero-downtime to production. You can get more inf
 
 ## TOC
   * [ElasticSearch integration Examples with Laravel, Livewire](#elasticsearch-integration-examples-with-laravel-livewire)
-  * Audience Builder - Bulk Edit UI (Coming next)
-  * Audience Builder using Livewire for a dynamic tool/dashboard
-  * Private Projects - examples of code and access to thoes repos since they are mine
-  * Blog Posts
+  * [Audience Builder - Bulk Edit UI](#coming-soon)
+  * [Audience Builder using Livewire for a dynamic tool/dashboard](#audience-builder-using-livewire)
+  * [Private Projects - examples of code and access to thoes repos since they are mine](#private-projects)
+  * [Blog Posts](#blog-posts)
 
 ## ElasticSearch integration Examples with Laravel, Livewire
 
@@ -394,7 +394,12 @@ Working from the UI I will show how this comes togther:
 
 ![](/images/atlas_full.png)
 
+## Audience Builder - Bulk Edit UI
 
+Here you can see an Advnaced Edit area to replace the customers need for AirTable.
+This is all Livewire and MySQL and I will show the code in a moment:
+
+![](/images/advanced_edit.gif)
 
 
 ### Livewire 
