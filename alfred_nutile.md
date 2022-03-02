@@ -8,7 +8,7 @@ With all of these comes the understanding of CI/CD at the core. With CI there is
 auto deployment to staging and zero-downtime to production. You can get more info [here](https://alfrednutile.info/posts/ci_cd_part_one/) on how I start this off for projects. This article uses GithubActions since it really streamlines the work.
 
 ## TOC
-  * ElasticSearch integration Examples with Laravel, Livewire
+  * [ElasticSearch integration Examples with Laravel, Livewire](#elasticsearch-integration-examples-with-laravel-livewire)
   * Audience Builder - Bulk Edit UI (Coming next)
   * Audience Builder using Livewire for a dynamic tool/dashboard
   * Private Projects - examples of code and access to thoes repos since they are mine
