@@ -704,7 +704,7 @@ Here I modify the indiviual as the "modal" ui sends back a response to the Repos
 
 ```
 
-Allow user to tag the data:
+Allow user to tag the data, note how I abstracted that class out into it's own responsiblity.
 
 ```php
 
