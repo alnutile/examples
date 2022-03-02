@@ -9,7 +9,7 @@ auto deployment to staging and zero-downtime to production. You can get more inf
 
 ## TOC
   * [ElasticSearch integration Examples with Laravel, Livewire](#elasticsearch-integration-examples-with-laravel-livewire)
-  * [Audience Builder - Bulk Edit UI](#coming-soon)
+  * [Audience Builder - Bulk Edit UI](#audience-builder---bulk-edit-ui)
   * [Audience Builder using Livewire for a dynamic tool/dashboard](#audience-builder-using-livewire)
   * [Private Projects - examples of code and access to thoes repos since they are mine](#private-projects)
   * [Blog Posts](#blog-posts)
@@ -400,6 +400,413 @@ Here you can see an Advnaced Edit area to replace the customers need for AirTabl
 This is all Livewire and MySQL and I will show the code in a moment:
 
 ![](/images/advanced_edit.gif)
+
+
+### Starting with the "Controller"
+Livewire acts as the route and the controller.
+You can see a slim controller code here:
+
+```php
+<?php
+
+namespace App\Http\Livewire;
+
+use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\AudienceBuilder;
+use Illuminate\Support\Facades\Log;
+use App\Http\Livewire\Traits\WithBulkActions;
+use App\Traits\AtlasNotifications;
+use Facades\App\Repositories\AdvancedAudienceBuilderRepository;
+
+class AdvancedAudienceBuilder extends Component
+{
+    use WithPagination;
+    use WithBulkActions;
+    use AtlasNotifications;
+
+    public $abModelName = "models_audience_builder";
+
+    public $first_time = true;
+
+    public $filters = [
+        'search' => '',
+        'enriched_only' => true,
+        'imports' => [],
+        'job_titles' => [],
+        'employers' => []
+    ];
+
+    protected $listeners = ['individualAdded', 'individualUpdated', 'refreshTable', 'filtersUpdated'];
+
+    public $models_audience_builder;
+
+    public function mount(AudienceBuilder $audience_builder)
+    {
+        $this->models_audience_builder = $audience_builder;
+    }
+
+    public function updatingFiltersSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function filtersUpdated($filters)
+    {
+        Log::info("Before", $this->filters);
+        $this->filters = array_merge($this->filters, $filters);
+        Log::info("After", $this->filters);
+    }
+
+    public function refreshTable()
+    {
+        $this->atlasAlert("Table updated");
+    }
+
+    public function openEditModal($individual_id)
+    {
+        $this->emit("openModal", 'add-edit-individual', [
+            'audienceBuilder' => $this->models_audience_builder,
+            'individual' => $individual_id,
+            'selected' => $this->selected,
+            'filters' => $this->filters
+        ]);
+    }
+
+
+    public function individualUpdated()
+    {
+        $this->atlasAlert("Individal Updated");
+    }
+
+    public function individualAdded()
+    {
+        $this->atlasAlert("Individual Added");
+    }
+
+
+    public function render()
+    {
+        $individuals = AdvancedAudienceBuilderRepository::paginate(20)
+            ->setSearch($this->filters['search'])
+            ->setEnrichedOnly($this->filters['enriched_only'])
+            ->setImports($this->filters['imports'])
+            ->setJobTitles($this->filters['job_titles'])
+            ->setEmployers($this->filters['employers'])
+            ->search($this->models_audience_builder);
+
+
+        return view('livewire.advanced-audience-builder', [
+            'individuals' => $individuals
+        ]);
+    }
+}
+```
+
+This is key as breaking the UI into components makes building it, adding to it, and debugging it easier. 
+
+### The Search Repository class
+
+`AdvancedAudienceBuilderRepository`
+
+Again DI or RealTime Facades I inject a class that makes it easy to mock the UI on it's own and the Repository class outside of the UI. This is key to making an application easy to change over time, maintain etc.
+
+
+I will share that class below breaking it up with comments:
+
+```php
+<?php
+
+namespace App\Repositories;
+
+use App\Dtos\PDLEnrichmentDto;
+use App\Models\Import;
+use App\Models\Individual;
+use Illuminate\Support\Str;
+use App\Models\AudienceBuilder;
+use App\Models\AudienceTag;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
+use YlsIdeas\FeatureFlags\Facades\Features;
+use Facades\App\Repositories\IndividualRepository;
+
+class AdvancedAudienceBuilderRepository
+{
+    public $paginate;
+
+    public $search = '';
+
+    public $imports = [];
+
+    public $jobTitles = [];
+
+    public $enriched_only = true;
+
+    public $employers = [];
+
+    public function setSearch($search)
+    {
+        $this->search = $search;
+        return $this;
+    }
+
+    public function setEnrichedOnly($state = true)
+    {
+        $this->enriched_only = $state;
+        return $this;
+    }
+
+
+    public function setEmployers(array $employers)
+    {
+        $this->employers = $employers;
+        return $this;
+    }
+
+    public function setJobTitles(array $jobTitles)
+    {
+        $this->jobTitles = $jobTitles;
+        return $this;
+    }
+
+```
+Lots of public attributes could be made protected. This is where "Red, Green, Refactor" could help me pay off this Technical Debt.
+
+```php
+    public function setImports(array $imports)
+    {
+        $this->imports = $imports;
+        return $this;
+    }
+
+    public function paginate($paginate = 100)
+    {
+        $this->paginate = $paginate;
+        return $this;
+    }
+
+    public function getFilters(AudienceBuilder $ab)
+    {
+        $filters = [
+            'job_titles' => [],
+            'employers' => []
+        ];
+
+        $imports = $ab->imports()->pluck("id");
+
+        $filters['job_titles'] = DB::table("import_individual")
+            ->select("individuals.job_title")
+            ->leftJoin("individuals", "individuals.id", "import_individual.individual_id")
+            ->whereIn("import_individual.import_id", $imports)
+            ->distinct()
+            ->orderBy("job_title")
+            ->pluck('job_title')->toArray();
+
+        $filters['employers'] = DB::table("import_individual")
+            ->select("individuals.employer")
+            ->leftJoin("individuals", "individuals.id", "import_individual.individual_id")
+            ->whereIn("import_individual.import_id", $imports)
+            ->distinct()
+            ->orderBy("employer")
+            ->pluck('employer')->toArray();
+
+
+        return $filters;
+    }
+```
+This is a query to get dynamic filters you are seeing in the UI.
+
+These could be cached to speed up the process. This is a "Skateboar" approach and 
+this feature was one of the later ones I made and would come back to optimizie here.
+
+
+```php
+
+    public function updateIndividualInAb(
+        Individual $individual,
+        AudienceBuilder $audienceBuilder,
+        $tags = []
+    ) {
+        $individual->save();
+
+        if (!empty($tags)) {
+            foreach ($audienceBuilder->imports as $import) {
+                $import->individuals()->detach($individual->id);
+            }
+            $import = $this->addImport($audienceBuilder, $individual);
+            $this->addTags($import, $tags);
+        }
+
+        return $individual->refresh();
+    }
+
+    public function addIndividualToAb(
+        Individual $individual,
+        AudienceBuilder $audienceBuilder,
+        $tags = []
+    ) {
+        if (!$individual->id) {
+            if (!$individual->enrichment) {
+                $dto = IndividualRepository::makeDtoFromIndividual($individual);
+                $individual->enrichment = $dto->toArray();
+                $individual->enriched = false;
+            } else {
+                //make proper enriched user
+                $dto = new PDLEnrichmentDto($individual->enrichment);
+                $individual = Individual::makeInstance($dto);
+            }
+            $individual->save();
+        }
+
+        $import = $this->addImport($audienceBuilder, $individual);
+
+        if (empty($tags)) {
+            $tags = [AudienceTag::manual()->id];
+        }
+
+        $this->addTags($import, $tags);
+
+        return $individual;
+    }
+
+```
+Here I modify the indiviual as the "modal" ui sends back a response to the Repository class. I am using the Spatie Data Transfer Obeject library to help make sure the data in and our lines up with what is required.
+
+```php
+
+    protected function addTags($import, $tags)
+    {
+        AudienceTag::addTags($import, $tags);
+    }
+
+    protected function addImport(AudienceBuilder $audienceBuilder, Individual $individual)
+    {
+        $import_name = sprintf(
+            "Manual Import for Individual %s %s",
+            $individual->first_name,
+            $individual->last_name
+        );
+
+        $import = Import::makeManual(
+            $audienceBuilder,
+            auth()->user(),
+            auth()->user()->currentTeam->id,
+            $import_name
+        );
+
+        $import->individuals()->syncWithoutDetaching(
+            [$individual->id]
+        );
+
+        return $import;
+    }
+
+```
+
+Allow user to tag the data:
+
+```php
+
+    /**
+     * @see app/Exports/AudienceBuilderForMLExport.php
+     */
+    public function search(AudienceBuilder $ab)
+    {
+        if (!empty($this->imports)) {
+            $imports = $this->imports;
+        } else {
+            $imports = $ab->imports->pluck('id');
+        }
+
+        // /*+ SET_VAR(sql_mode='STRICT_TRANS_TABLES') */
+        $results = Individual::query()->select(
+            DB::raw("
+    individuals.id,
+    individuals.enriched,
+	individuals.first_name AS first_name,
+	individuals.middle_name AS middle_name,
+	individuals.last_name AS last_name,
+    individuals.job_title AS job_title,
+	individuals.employer AS employer,
+	individuals.street_address_1 AS street_address_1,
+	individuals.street_address_2 AS street_address_2,
+	individuals.city AS city,
+	individuals.state AS state,
+	individuals.postal_code AS postal_code,
+	individuals.postal_plus AS postal_plus,
+	individuals.primary_email AS primary_email,
+	individuals.email_two AS email_two,
+	individuals.email_three AS email_three,
+	individuals.email_four AS email_four,
+	individuals.email_five AS email_five,
+	individuals.email_six AS email_six,
+	individuals.phone_one AS phone_one,
+	individuals.phone_two AS phone_two,
+	individuals.phone_three AS phone_three,
+	individuals.birth_date AS birth_date,
+	individuals.age AS age,
+	individuals.gender AS gender,
+	individuals.linkedin_id AS linkedin_id,
+	individuals.linkedin_url AS linkedin_url,
+	individuals.twitter_id AS twitter_id,
+	individuals.twitter_url AS twitter_url,
+	individuals.twitter_handle AS twitter_handle,
+	individuals.facebook_id AS facebook_id,
+	individuals.facebook_url AS facebook_url,
+	individuals.original_id AS original_id,
+	GROUP_CONCAT(DISTINCT category.name) AS category,
+	GROUP_CONCAT(DISTINCT audience_tags.name) AS subcategory,
+	SUM(audience_tags.score) as score_total")
+        )->leftJoin('import_individual', 'import_individual.individual_id', '=', 'individuals.id')
+            ->leftJoin('taggables', 'taggables.taggable_id', '=', 'import_individual.import_id')
+            ->leftJoin('audience_tags', 'audience_tags.id', '=', 'taggables.audience_tag_id')
+            ->leftJoin('audience_tags as category', 'category.id', '=', 'audience_tags.parent_id')
+            ->orWhere(function ($query) use ($imports) {
+                foreach ($imports as $import) {
+                    $query->orWhere('import_individual.import_id', '=', $import);
+                }
+            })
+            ->when(!empty($this->employers), function ($query) {
+                $query->where(function ($query) {
+                    foreach ($this->employers as $filter) {
+                        $query->orWhere("individuals.employer", "LIKE", $filter);
+                    };
+                });
+            })
+            ->when(!empty($this->jobTitles), function ($query) {
+                $query->where(function ($query) {
+                    foreach ($this->jobTitles as $jobTitle) {
+                        $query->orWhere("individuals.job_title", "LIKE", $jobTitle);
+                    };
+                });
+            })
+            ->when($this->enriched_only, function ($query) {
+                $query->where("individuals.enriched", '=', 1);
+            })
+            ->where('taggable_type', '=', 'App\\Models\\Import');
+
+        if ($this->search && Str::length($this->search) >= 3) {
+            $results = $results->where(function ($query) {
+                $query->orWhere("first_name", "LIKE", "%$this->search%")
+                    ->orWhere("last_name", "LIKE", "%$this->search%");
+            });
+        }
+
+        $results = $results->groupBy("individuals.id")
+            ->orderBy("individuals.last_name", "DESC");
+
+        if (Features::accessible('advanced_query')) {
+            File::put(base_path("tests/fixtures/advanced_individuals.txt"), $results->toSql());
+        }
+
+        return $results->paginate($this->paginate);
+    }
+}
+```
+
+This was a more complex query to I mixed the Laravel options here and note too that I pass the query variables properly to prevent SQL Injection.
+
 
 
 ### Livewire 
