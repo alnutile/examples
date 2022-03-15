@@ -13,6 +13,7 @@ auto deployment to staging and zero-downtime to production. You can get more inf
   * [Audience Builder using Livewire for a dynamic tool/dashboard](#audience-builder-using-livewire)
   * [Private Projects - examples of code and access to thoes repos since they are mine](#private-projects)
   * [Blog Posts](#blog-posts)
+  * [Open Souce](#opens-source)
 
 ## ElasticSearch integration Examples with Laravel, Livewire
 
@@ -1634,3 +1635,15 @@ Here are some of my more popular blog posts
   * [We Code in the Context of our Quoting](https://alnutile.medium.com/we-code-in-the-context-of-our-quoting-dab391fe0881)
   * [Behat Laravel Domain Testing Inside Out](https://alfrednutile.info/posts/187/)
   * [CI — GitHub Actions and Laravel (Part 1 of 3)](https://medium.com/@alnutile/ci-github-actions-and-laravel-part-1-of-3-547d5515b116)
+
+
+  ## Open Source
+
+Below are some links to libraries I made or am a part of. I have also in the past offered PRs to numerous open-soure libraries even if it was just a typo. My favorite PR was offering `php artisan test NewTest` as a new Artisan command to Laravel.
+
+There is a team of devs that work on different open-soure libraries you can see this Github "Org" [here](https://github.com/friendsofcat). One of them I started is
+[https://github.com/friendsofcat/laravel-feature-flag](https://github.com/friendsofcat/laravel-feature-flag)
+
+I am a big believer in feature-flags for the ability to deploy daily and release when ready using Feature Flags. I write more about it [here](https://alfrednutile.info/posts/175/)
+
+One thing I would like to do more of is contribute back to open-source. 
